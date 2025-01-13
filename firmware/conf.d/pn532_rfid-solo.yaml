@@ -107,11 +107,18 @@ pn532_spi:
           - binary_sensor.is_on: rfid_reader_spi_0_tag_is_openspool
           - binary_sensor.is_on: rfid_reader_spi_0_tag_parsed
         then:
-        - mqtt.publish:
-            topic: !lambda 'return "device/" + id(bambu_serial_number).state + "/request";'
-            # 255 = external ams, TODO: A1,P1,X1 might use different values for AMS
-            # 254 = external tray, first filament slot is tray 0
-            payload: !lambda "return bambulabs::generate_mqtt_payload( id(filament_raw_data0).state, 255, 254 );"
+        - if:
+            condition:
+              - lambda: 'return id(ams_scan_mode) == true;'
+            then:
+                - script.execute: start_timer_spoolinstall
+                - lambda: 'id(scanned_tag_data) = id(filament_raw_data0).state;'
+            else:
+              - mqtt.publish:
+                  topic: !lambda 'return "device/" + id(bambu_serial_number).state + "/request";'
+                  # 255 = external ams, TODO: A1,P1,X1 might use different values for AMS
+                  # 254 = external tray, first filament slot is tray 0
+                  payload: !lambda "return bambulabs::generate_mqtt_payload( id(filament_raw_data0).state, 255, 254 );"
 text_sensor:
 - platform: template
   name: "NFC Raw Data"

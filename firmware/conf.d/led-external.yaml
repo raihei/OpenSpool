@@ -21,6 +21,14 @@ light:
       speed: 25
       width: 15
   - addressable_lambda:
+      name: Breathing Green
+      update_interval: 10ms
+      lambda: |-
+        static float b = 0;
+        b = (sin(millis() / 500.0) + 1.0) / 2.0 * 0.6 + 0.4;
+        auto color = esphome::light::ESPColor(0, uint8_t(255 * b), 0);
+        it.all() = color;
+  - addressable_lambda:
       name: Breathing Blue
       update_interval: 10ms
       lambda: |-
@@ -28,6 +36,14 @@ light:
         b = (sin(millis() / 500.0) + 1.0) / 2.0 * 0.6 + 0.4;
         auto color = esphome::light::ESPColor(0, 0, uint8_t(255 * b));
         it.all() = color;
+  - addressable_lambda:
+      name: Breathing White
+      update_interval: 10ms
+      lambda: |-
+        static float b = 0;
+        b = (sin(millis() / 500.0) + 1.0) / 2.0 * 0.6 + 0.4;
+        auto color = esphome::light::ESPColor(uint8_t(255 * b), uint8_t(255 * b), uint8_t(255 * b));
+        it.all() = color;         
   - addressable_lambda:
       name: Apple Breathing
       update_interval: 10ms
@@ -122,6 +138,15 @@ script:
       red: 100%
       green: 100%
       blue: 100%
+- id: set_led_semioff
+  then:
+  - light.turn_on:
+      id: neopixel_light
+      effect: none
+      brightness: 50%
+      red: 0%
+      green: 0%
+      blue: 0%
 - id: set_led_off
   then:
   - light.turn_on:

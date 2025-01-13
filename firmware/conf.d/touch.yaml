@@ -1,0 +1,238 @@
+esp32_touch:
+  setup_mode: False
+  measurement_duration: 0.25ms
+  
+binary_sensor:
+  - platform: esp32_touch
+    id: touchbutton_ams_1
+    name: "Touch button AMS 1"
+    pin: ${touchbutton_ams_1}
+    threshold: 100000
+    on_press:
+      then:
+        - if:
+            condition:
+              and:
+                - not:
+                    script.is_running: timer_slotselect
+                - not:
+                    script.is_running: timer_spoolscan
+                - not:
+                    script.is_running: timer_spoolinstall
+            then:
+              - logger.log: "Keypress detected. Waiting for further key presses."
+              - script.execute: start_timer_slotselect
+              - script.execute:
+                  id: set_led_yellow
+                  led_number: 0
+            else:
+              - if:
+                  condition:
+                    script.is_running: timer_slotselect
+                  then:
+                    - globals.set:
+                        id: slotselect_timeout
+                        value: "0"
+                    - if:
+                        condition:
+                          lambda: "return id(slotselect_counter) < 4;"
+                        then:
+                          - globals.set:
+                              id: slotselect_counter
+                              value: !lambda "return id(slotselect_counter) + 1;"
+                          - logger.log: "Further key press detected."
+                          - script.execute:
+                              id: set_led_yellow
+                              led_number: !lambda "return id(slotselect_counter) - 1;"
+                        else:
+                          - globals.set:
+                              id: slotselect_counter
+                              value: "1"
+                          - logger.log: "Button pressed more than 4 times. Aborting."
+                          - script.execute:
+                              id: set_led_red
+                              led_number: -1
+                          - script.stop: timer_slotselect
+                          - delay: 1s
+                          - script.execute:
+                              id: set_led_white
+                              led_number: -1    
+              - if:
+                  condition:
+                    script.is_running: timer_spoolinstall
+                  then:
+                    - logger.log: "Transfering spool data to printer"
+                    - script.stop: timer_spoolinstall   
+                    - light.turn_on:
+                        id: neopixel_light
+                        effect: none
+                    - script.execute:
+                        id: set_led_green
+                        led_number: -1    
+                    - delay: 500ms
+                    - script.execute:
+                        id: set_led_white
+                        led_number: -1   
+                    - mqtt.publish:
+                        topic: !lambda 'return "device/" + id(bambu_serial_number).state + "/request";'
+                        payload: !lambda "return bambulabs::generate_mqtt_payload( id(scanned_tag_data), 0, id(slotselect_counter) - 1 );"
+                    - globals.set:
+                        id: ams_scan_mode
+                        value: "false"
+              - if:
+                  condition:
+                    script.is_running: timer_spoolscan
+                  then:
+                    - logger.log: "Key pressed without scanning spool. Aborting"
+                    - script.stop: timer_spoolscan     
+                    - globals.set:
+                        id: ams_scan_mode
+                        value: "false"               
+                    - script.execute:
+                        id: set_led_white
+                        led_number: -1  
+
+globals:
+  - id: slotselect_timeout
+    type: int
+    initial_value: "0"
+  - id: slotselect_counter
+    type: int
+    initial_value: "0"
+  - id: slotselect_display_counter
+    type: int
+    initial_value: "0"
+  - id: ams_scan_mode
+    type: bool
+    initial_value: "false"
+  - id: spoolinstall_timeout
+    type: int
+    initial_value: "0"
+  - id: spoolscan_timeout
+    type: int
+    initial_value: "0"
+  - id: scanned_tag_data
+    type: std::string
+    max_restore_data_length: 160
+    initial_value: ""
+
+script:
+  - id: timer_slotselect
+    then:
+      - while:
+          condition:
+            lambda: "return id(slotselect_timeout) < 3;"
+          then:
+            - globals.set:
+                id: slotselect_timeout
+                value: !lambda "return id(slotselect_timeout) + 1;"
+            - logger.log: "Waiting for further key presses."
+            - delay: 1s
+      - logger.log: "Key press timeout."
+      - logger.log:
+          format: "Selected slot: AMS 1 slot %d "
+          args: [ 'id(slotselect_counter)' ]         
+      - logger.log: "Waiting for spool scan (Timeout in 20 seconds)"
+      - globals.set:
+          id: ams_scan_mode
+          value: "true"
+      - repeat:
+          count: !lambda "return id(slotselect_counter);" 
+          then:
+            - logger.log: "green repeat"
+            - script.execute:
+                id: set_led_green
+                led_number: !lambda "return id(slotselect_display_counter);" 
+            - globals.set:
+                id: slotselect_display_counter
+                value: !lambda "return id(slotselect_display_counter) + 1;"
+      - script.execute: start_timer_spoolscan
+      - script.stop: timer_slotselect
+
+  - id: start_timer_slotselect
+    then:
+      - globals.set:
+          id: slotselect_timeout
+          value: "0"
+      - globals.set:
+          id: slotselect_counter
+          value: "1"
+      - globals.set:
+          id: slotselect_display_counter
+          value: "0"      
+      - script.execute: timer_slotselect
+
+  - id: timer_spoolinstall
+    then:
+      - while:
+          condition:
+            lambda: "return id(spoolinstall_timeout) < 120;"
+          then:
+            - globals.set:
+                id: spoolinstall_timeout
+                value: !lambda "return id(spoolinstall_timeout) + 1;"
+            - logger.log: "Waiting for spool install confirmation."
+            - delay: 1s
+      - logger.log: "Spool install timeout!"
+      - globals.set:
+          id: ams_scan_mode
+          value: "false"
+      - script.execute:
+          id: set_led_red
+          led_number: -1
+      - delay: 1s
+      - script.execute:
+          id: set_led_semioff
+          led_number: -1
+      - delay: 500ms
+      - script.execute:
+          id: set_led_white
+          led_number: -1    
+      - script.stop: timer_spoolinstall
+
+  - id: start_timer_spoolinstall
+    then:
+      - globals.set:
+          id: spoolinstall_timeout
+          value: "0"
+      - script.stop: timer_spoolscan
+      - logger.log: "Spool scanned. Please install spool and press button to confirm. (Timeout in 120 seconds)"
+      - delay: 1s
+      - script.execute:
+          id: set_led_breathing_green
+          led_number: -1
+      - delay: 2s
+      - script.execute:
+          id: set_led_breathing_green
+          led_number: -1
+      - script.execute: timer_spoolinstall
+
+  - id: timer_spoolscan
+    then:
+      - while:
+          condition:
+            lambda: "return id(spoolscan_timeout) < 20;"
+          then:
+            - globals.set:
+                id: spoolscan_timeout
+                value: !lambda "return id(spoolscan_timeout) + 1;"
+            - logger.log: "Waiting for spool scan."
+            - delay: 1s
+      - logger.log: "Spool scan timeout!"
+      - globals.set:
+          id: ams_scan_mode
+          value: "false"
+      - light.turn_on:
+          id: neopixel_light
+          effect: none
+      - script.execute:
+          id: set_led_white
+          led_number: -1    
+      - script.stop: timer_spoolscan
+
+  - id: start_timer_spoolscan
+    then:
+      - globals.set:
+          id: spoolscan_timeout
+          value: "0"
+      - script.execute: timer_spoolscan

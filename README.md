@@ -13,6 +13,30 @@
 <a href="https://www.tindie.com/stores/spuder/?ref=offsite_badges&utm_source=sellers_spuder&utm_medium=badges&utm_campaign=badge_small"><img src="https://d2ss6ovg47m0r5.cloudfront.net/badges/tindie-smalls.png" alt="I sell on Tindie" width="200" height="55"></a>
 ---
 
+"ams-button"-Branch:<br>
+Bambu AMS support via a touch button for selecting the desired AMS slot (or the manual feed slot)<br>
+For LED feedback of the selected slot 4 WS2812 LEDs should be connected.<br>
+Adjust the sensitivity of the touch button in conf.d/touch.aml line 10, if required<br>
+(Set conf.d/touch.aml line 2 to "True" to enable display of touch button values in logger)<br>
+
+At the moment, only the target esp32-s3-zero.yaml contains the required configuration.<br>
+(Add substitution "touchbutton_ams_1" and package "touch: !include conf.d/touch.yaml" to other targets to enable.)<br>
+
+
+Tested on BambuLab P1S with one AMS.<br>
+
+Workflow:<br>
+<ul>
+	<li>Press the touch button to select the desired slot (1-4 times)</li>
+	<li>LEDs will indicate number of touches (slot) in yellow </li>
+	<li>After 3 seconds, LEDs will change to green, to confirm selected slot</li>
+	<li>Scan spool within 20 seconds.</li>
+	<li>LEDs will start breathing green as confirmation.</li>
+ 	<li>Install spool in AMS within 120 seconds and confirm by pressing button again.</li>
+	<li>Spool data will be transfered to the printer</li>
+	<li>End.
+</ul>
+
 
 # 📖 [OpenSpool.io](https://openspool.io)
 
