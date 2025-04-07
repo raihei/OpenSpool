@@ -7,7 +7,7 @@ binary_sensor:
     id: touchbutton_ams_1
     name: "Touch button AMS 1"
     pin: ${touchbutton_ams_1}
-    threshold: 100000
+    threshold: 110000
     on_press:
       then:
         - if:
@@ -76,6 +76,9 @@ binary_sensor:
                     - mqtt.publish:
                         topic: !lambda 'return "device/" + id(bambu_serial_number).state + "/request";'
                         payload: !lambda "return bambulabs::generate_mqtt_payload( id(scanned_tag_data), 0, id(slotselect_counter) - 1 );"
+                    - mqtt.publish:
+                        topic: !lambda 'return "device/" + id(bambu_serial_number).state + "/request";'
+                        payload: !lambda "return bambulabs::generate_mqtt_cali_payload( id(scanned_tag_data), 0, id(slotselect_counter) - 1 );"
                     - globals.set:
                         id: ams_scan_mode
                         value: "false"

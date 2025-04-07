@@ -40,7 +40,7 @@ namespace bambulabs
 
     // Special cases for brand-specific codes
     const std::unordered_map<std::string, std::unordered_map<std::string, std::string>> brand_specific_codes = {
-        {"PLA", {{"Bambu", "GFA00"}, {"PolyTerra", "GFL01"}, {"PolyLite", "GFL00"}, {"Sunlu", "SNL02"}}},
+        {"PLA", {{"Bambu", "GFA00"}, {"PolyTerra", "GFL01"}, {"PolyLite", "GFL00"}, {"Sunlu", "GFSNL02"}}},
         {"PLA Aero", {{"Bambu", "GFG01"}}},
         {"TPU", {{"Bambu", "GFU01"}}},
         {"ABS", {{"Bambu", "GFB00"}, {"PolyLite", "GFB60"}}},
@@ -50,7 +50,7 @@ namespace bambulabs
         {"PET-CF", {{"Bambu", "GFT00"}}},
         {"PETG HF", {{"Bambu", "GFG02"}}},
         {"PETG Translucent", {{"Bambu", "GFG01"}}},
-        {"PETG", {{"Bambu", "GFG00"}, {"PolyLite", "GFG60"}, {"Sunlu", "SNL08"}}}};
+        {"PETG", {{"Bambu", "GFG00"}, {"PolyLite", "GFG60"}, {"Sunlu", "GFSNL08"}}}};
 
     // Function with two parameters
     inline std::string get_bambu_code(const std::string &type, const std::string &brand = "")
@@ -158,5 +158,66 @@ namespace bambulabs
         ESP_LOGI("mqtt", "Publishing %s", result.c_str());
         return result;
     }
+inline std::string generate_mqtt_cali_payload(std::string openspool_tag_json, uint16_t ams_id, uint16_t ams_tray)
+    {
+        StaticJsonDocument<1024> doc_in;
+        StaticJsonDocument<512> doc_out;
 
+        DeserializationError error = deserializeJson(doc_in, openspool_tag_json);
+        if (error)
+        {
+            ESP_LOGE("bambu", "Failed to parse input JSON: %s", error.c_str());
+            return {}; // skip publishing
+        }
+
+        // Check if 'version' key exists and its value is 1.0
+        if (!doc_in.containsKey("version") || doc_in["version"].as<std::string>() != "1.0")
+        {
+            ESP_LOGE("bambu", "Invalid or missing version. Expected version '1.0'");
+            return {}; // skip publishing
+        }
+
+        // Check if required fields are present
+        const char *required_fields[] = {"color_hex", "min_temp", "max_temp", "brand", "type"};
+        for (const char *field : required_fields)
+        {
+            if (!doc_in.containsKey(field))
+            {
+                ESP_LOGE("bambu", "Missing required field: %s", field);
+                return {}; // skip publishing
+            }
+        }
+
+        if (doc_in["color_hex"].as<std::string>().length() != 6 && doc_in["color_hex"].as<std::string>().length() != 8) {
+            ESP_LOGE("bambu", "Invalid color_hex length (expected 6 or 8 characters)");
+            return {};
+        }
+
+        JsonObject print = doc_out.createNestedObject("print");
+        print["sequence_id"] = "0";
+        print["command"] = "extrusion_cali_sel";
+        print["ams_id"] = ams_id;
+        print["tray_id"] = ams_tray;
+        print["filament_id"] = get_bambu_code(doc_in["type"], doc_in["brand"]);
+
+        if (uint16_t(doc_in["cali_idx"]) == 0 || !doc_in.containsKey("cali_idx")) {
+            print["cali_idx"] = -1;
+        }
+        else{
+            print["cali_idx"] = uint16_t(doc_in["cali_idx"]);   
+        }        
+        print["nozzle_diameter"] = "0.4";
+
+        std::string result;
+        serializeJson(doc_out, result);
+
+        if (result.empty())
+        {
+            ESP_LOGE("bambu", "Failed to build Cali JSON");
+            return {};
+        }
+
+        ESP_LOGI("mqtt", "Publishing %s", result.c_str());
+        return result;
+    }
 }

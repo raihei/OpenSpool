@@ -279,6 +279,28 @@ number:
   on_value:
     then:
     - script.execute: preview_rfid_data
+- platform: template
+  name: Filament Calibration ID
+  id: filament_cali_idx
+  state_topic:
+  min_value: -1
+  max_value: 9999
+  initial_value: -1
+  step: 1
+  optimistic: true
+  mode: box
+  restore_value: true
+  icon: mdi:identifier
+  web_server:
+    sorting_group_id: sorting_group_filament_settings
+    sorting_weight: 95
+  set_action:
+    then:
+    - lambda: |-
+        id(filament_cali_idx).publish_state(int(x));
+  on_value:
+    then:
+    - script.execute: preview_rfid_data
 text_sensor:
 - platform: template
   name: "Filament Brand Code"

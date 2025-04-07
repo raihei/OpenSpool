@@ -119,6 +119,11 @@ pn532_spi:
                   # 255 = external ams, TODO: A1,P1,X1 might use different values for AMS
                   # 254 = external tray, first filament slot is tray 0
                   payload: !lambda "return bambulabs::generate_mqtt_payload( id(filament_raw_data0).state, 255, 254 );"
+              - mqtt.publish:
+                  topic: !lambda 'return "device/" + id(bambu_serial_number).state + "/request";'
+                  # 255 = external ams, TODO: A1,P1,X1 might use different values for AMS
+                  # 254 = external tray, first filament slot is tray 0
+                  payload: !lambda "return bambulabs::generate_mqtt_cali_payload( id(filament_raw_data0).state, 255, 254 );"
 text_sensor:
 - platform: template
   name: "NFC Raw Data"
@@ -284,6 +289,7 @@ button:
             root["type"] = id(filament_type).state;
             root["min_temp"] = id(filament_min_temp).state;
             root["max_temp"] = id(filament_max_temp).state;
+            root["cali_idx"] = id(filament_cali_idx).state;
             root["brand"] = id(filament_brand).state;
 
             std::string json_string;

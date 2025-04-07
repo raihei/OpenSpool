@@ -21,6 +21,7 @@ script:
           } 
           root["min_temp"] = id(filament_min_temp).state;
           root["max_temp"] = id(filament_max_temp).state;
+          root["cali_idx"] = id(filament_cali_idx).state;
           root["type"] = id(filament_type).state.c_str();
 
           std::string output;
@@ -119,6 +120,27 @@ script:
             });
             ESP_LOGI("main", "Publishing %s", data.c_str());
             return data;
+      - mqtt.publish:
+          # topic: device/${bambu_serial_number}/request
+          topic: !lambda 'return "device/" + id(bambu_serial_number).state + "/request";'
+          payload: !lambda |-
+            auto data = json::build_json([=](JsonObject root) {
+              auto print = root.createNestedObject("print");
+              print["sequence_id"] = "0";
+              print["command"] = "extrusion_cali_sel";
+              print["ams_id"] = 255; //TODO: support multiple AMS
+              print["tray_id"] = 254; //TODO: support multiple trays
+              print["filament_id"] = id(filament_brand_code).state.c_str();//bambulabs::get_bambu_code(id(filament_type).state.c_str(), id(filament_brand).state.c_str());
+              if (uint16_t(id(filament_cali_idx).state) == 0 ) {
+                  print["cali_idx"] = -1;
+              }
+              else{
+                  print["cali_idx"] = uint16_t(id(filament_cali_idx).state);   
+              }      
+              print["nozzle_diameter"] = "0.4";
+            });
+            ESP_LOGI("main", "Publishing %s", data.c_str());
+            return data;
 - id: generate_filament_brand_code # TODO: Replace with filament_mappings()
   then:
   - lambda: |-
@@ -141,6 +163,8 @@ script:
         } else if (id(filament_brand).state == "PolyLite") {
           id(filament_brand_code).publish_state("GFL00");
           id(filament_sub_brand).publish_state("PolyLite PLA");
+        } else if (id(filament_brand).state == "Sunlu") {
+          id(filament_brand_code).publish_state("GFSNL03");          
         } else if (id(filament_brand).state == "Bambu") {
           // Check for Bambu PLA variants
           if (id(filament_variant).state == "Basic") {
@@ -170,6 +194,8 @@ script:
           // TODO: find overture PETG brand code
           id(filament_brand_code).publish_state("GFG99"); // Using generic for now
           id(filament_sub_brand).publish_state("PETG");
+        } else if (id(filament_brand).state == "Sunlu") {
+          id(filament_brand_code).publish_state("GFSNL08");  
         } else { // Generic
           id(filament_brand_code).publish_state("GFG99");
           id(filament_sub_brand).publish_state("PETG");
