@@ -76,7 +76,7 @@ namespace bambulabs
         return ""; // Unknown type
     }
 
-    // Function with three parameters (for Bambu PLA subtypes)
+    // Function with three parameters (for Bambu & Sunlu PLA subtypes)
     inline std::string get_bambu_code(const std::string &type, const std::string &brand, const std::string &subtype)
     {
         if (type == "PLA" && brand == "Bambu")
@@ -88,6 +88,18 @@ namespace bambulabs
             if (subtype == "Impact")
                 return "GFA03";
             return "GFA00"; // Default to Basic for unknown subtypes
+        }
+        else if (type == "PLA" && brand == "Sunlu")
+        {
+            if (subtype == "Matte")
+                return "GFSNL02";
+            if (subtype == "Silk")
+                return "GFSNL05";
+            if (subtype == "Marble")
+                return "GFSNL06";
+            if (subtype == "Wood")
+                return "GFSNL06";
+            return "GFSNL03"; // Default to Basic for unknown subtypes
         }
         return get_bambu_code(type, brand);
     }
@@ -143,7 +155,15 @@ namespace bambulabs
         print["nozzle_temp_max"] = uint16_t(doc_in["max_temp"]); // if not string or int, will fall back to 0
         print["tray_type"] = doc_in["type"];
         print["setting_id"] = "";
-        print["tray_info_idx"] = get_bambu_code(doc_in["type"], doc_in["brand"]);
+        // If tag contains brand_code and it is not empty, use it
+        if (doc_in.containsKey("brand_code") && doc_in["brand_code"] != ""){
+            print["tray_info_idx"] = doc_in["brand_code"];
+        }
+        // otherwise get brand_code from type and brand name
+        else{
+            print["tray_info_idx"] = get_bambu_code(doc_in["type"], doc_in["brand"]);
+        }
+        
         // print["tray_sub_brands"] = doc_in["sub_brand"]; //TODO: support sub brands if needed
 
         std::string result;
@@ -198,7 +218,15 @@ inline std::string generate_mqtt_cali_payload(std::string openspool_tag_json, ui
         print["command"] = "extrusion_cali_sel";
         print["ams_id"] = ams_id;
         print["tray_id"] = ams_tray;
-        print["filament_id"] = get_bambu_code(doc_in["type"], doc_in["brand"]);
+        // If tag contains brand_code and it is not empty, use it
+        if (doc_in.containsKey("brand_code") && doc_in["brand_code"] != ""){
+            print["filament_id"] = doc_in["brand_code"];
+        }
+        // otherwise get brand_code from type and brand name
+        else{
+            print["filament_id"] = get_bambu_code(doc_in["type"], doc_in["brand"]);
+        }
+        
 
         if (uint16_t(doc_in["cali_idx"]) == 0 || !doc_in.containsKey("cali_idx")) {
             print["cali_idx"] = -1;

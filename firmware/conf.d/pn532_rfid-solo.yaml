@@ -291,6 +291,7 @@ button:
             root["max_temp"] = id(filament_max_temp).state;
             root["cali_idx"] = id(filament_cali_idx).state;
             root["brand"] = id(filament_brand).state;
+            root["brand_code"] = id(filament_brand_code).state;
 
             std::string json_string;
             serializeJson(root, json_string);
